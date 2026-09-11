@@ -1,26 +1,36 @@
+import os
 import datetime
+import logging
 import psutil
 import requests
+from dotenv import load_dotenv
 
-# Limite percentual de uso de disco
+# Configura o arquivo de log acumulativo
+logging.basicConfig(
+    filename='execucao.log',
+    level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+load_dotenv()
+
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 LIMITE_DISCO_PERCENTUAL = 80.0
 
-# COLE A SUA URL DO WEBHOOK DO TEAMS ENTRE AS ASPAS ABAIXO:
-WEBHOOK_URL = "https://defaultfbcbd4a1cffc4c50b5a8611abdfe17.8c.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/30/workflows/4b8cfa9661eb45d997e36155975e3dee/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ubSgsAytkgQGnthj58kyYtKxfHAiEWZOFXBPxvLejAM"
-
-def enviar_alerta_teams(mensagem, status_critico=False):
-    if WEBHOOK_URL == "SUA_URL_DO_WEBHOOK_AQUI":
-        print("[AVISO] Cole a URL do Webhook na variável WEBHOOK_URL para enviar para o Teams.")
+def enviar_alerta_teams(mensagem):
+    if not WEBHOOK_URL:
+        erro_msg = "Variavel WEBHOOK_URL nao encontrada no .env!"
+        print(f"[ERRO] {erro_msg}")
+        logging.error(erro_msg)
         return
 
-    cor_header = "Attention" if status_critico else "Good"
-    
-    # Formato do payload para o Microsoft Teams
     payload = {
         "type": "message",
         "attachments": [
             {
                 "contentType": "application/vnd.microsoft.card.adaptive",
+                "contentUrl": None,
                 "content": {
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "type": "AdaptiveCard",
@@ -28,10 +38,9 @@ def enviar_alerta_teams(mensagem, status_critico=False):
                     "body": [
                         {
                             "type": "TextBlock",
-                            "text": "🚨 Monitoramento de Infraestrutura N2" if status_critico else "📊 Status de Rotina - TI",
+                            "text": "📊 Relatório de Infraestrutura - Disco",
                             "weight": "Bolder",
-                            "size": "Medium",
-                            "color": cor_header
+                            "size": "Medium"
                         },
                         {
                             "type": "TextBlock",
@@ -45,29 +54,38 @@ def enviar_alerta_teams(mensagem, status_critico=False):
     }
 
     try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=5)
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
         if response.status_code in [200, 202]:
-            print("[INFO] Alerta enviado para o Teams com sucesso!")
+            sucesso_msg = "Notificacao enviada para o Teams com sucesso!"
+            print(f"[INFO] {sucesso_msg}")
+            logging.info(sucesso_msg)
         else:
-            print(f"[ERRO] Falha ao enviar para o Teams. Código HTTP: {response.status_code}")
+            recusa_msg = f"Teams recusou o envio. Codigo HTTP: {response.status_code}"
+            print(f"[ERRO] {recusa_msg}")
+            logging.error(recusa_msg)
     except Exception as e:
-        print(f"[ERRO] Erro de conexão com o Webhook: {e}")
+        falha_msg = f"Falha de conexao com o Webhook: {e}"
+        print(f"[ERRO] {falha_msg}")
+        logging.error(falha_msg)
 
 def verificar_disco():
     uso_disco = psutil.disk_usage('C:\\')
     percentual_usado = uso_disco.percent
-    data_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"[{data_hora}] Checando integridade do disco C:...")
-    
+    msg_inicio = "Checando integridade do disco C:..."
+    print(f"[INFO] {msg_inicio}")
+    logging.info(msg_inicio)
+
     if percentual_usado >= LIMITE_DISCO_PERCENTUAL:
-        alerta = f"**ALERTA CRÍTICO**: O disco C: do servidor/máquina atingiu **{percentual_usado}%** de capacidade!"
-        print(f"[{data_hora}] {alerta}")
-        enviar_alerta_teams(alerta, status_critico=True)
+        alerta = f"ALERTA CRITICO: O disco C: atingiu {percentual_usado}% de capacidade!"
+        print(f"[ALERTA] {alerta}")
+        logging.warning(alerta)
+        enviar_alerta_teams(alerta)
     else:
-        status = f"Uso do disco C: em **{percentual_usado}%**. Operação dentro da normalidade."
-        print(f"[{data_hora}] {status}")
-        enviar_alerta_teams(status, status_critico=False)
+        status = f"Uso do disco C: em {percentual_usado}%. Operacao dentro da normalidade."
+        print(f"[INFO] {status}")
+        logging.info(status)
+        enviar_alerta_teams(status)
 
 if __name__ == "__main__":
     verificar_disco()
