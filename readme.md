@@ -1,5 +1,18 @@
-1.1. Criar e abrir o arquivo README.md:Comando: notepad.No terminal, dentro da pasta do seu projeto, execute:Bashnotepad README.md
-O que esse comando faz: Se o arquivo não existir, o Windows vai perguntar se deseja criá-lo (clique em Sim). O Bloco de Notas será aberto em seguida.2.2. Colar o conteúdo formatado:Interface Gráfica.Copie todo o texto no bloco abaixo e cole dentro da janela do Bloco de Notas:Plaintext# 📊 Automação de Monitoramento de Infraestrutura N2
+1.1. Criar e abrir o arquivo README.md:
+Comando: notepad.
+No terminal, dentro da pasta do seu projeto, execute:
+Bash
+notepad README.md
+O que esse comando faz: Se o arquivo não existir, o Windows vai perguntar se deseja criá-lo (clique em Sim). 
+O Bloco de Notas será aberto em seguida.
+
+2.2. Colar o conteúdo formatado:
+
+Interface Gráfica.Copie todo o texto no bloco abaixo e cole dentro da janela do Bloco de Notas:
+
+Plaintext# 
+
+📊 Automação de Monitoramento de Infraestrutura N2
 
 Projeto de automação desenvolvido em Python para monitoramento de saúde do sistema (uso de disco C:) e disparo de alertas em tempo real para o Microsoft Teams via Webhooks seguros.
 
