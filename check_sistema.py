@@ -1,11 +1,10 @@
 import os
-import datetime
 import logging
 import psutil
 import requests
 from dotenv import load_dotenv
 
-# Configura o arquivo de log acumulativo
+# Configura o sistema de logging acumulativo
 logging.basicConfig(
     filename='execucao.log',
     level=logging.INFO,
@@ -69,20 +68,31 @@ def enviar_alerta_teams(mensagem):
         logging.error(falha_msg)
 
 def verificar_disco():
-    uso_disco = psutil.disk_usage('C:\\')
+    # Prioridade de verificação do disco:
+    # 1. Se existe a pasta mapeada do container (/host_disk) -> usa ela
+    # 2. Se for Windows local -> usa 'C:\'
+    # 3. Caso contrário -> usa a raiz Linux '/'
+    if os.path.exists('/host_disk'):
+        caminho_disco = '/host_disk'
+    elif os.name == 'nt':
+        caminho_disco = 'C:\\'
+    else:
+        caminho_disco = '/'
+
+    uso_disco = psutil.disk_usage(caminho_disco)
     percentual_usado = uso_disco.percent
 
-    msg_inicio = "Checando integridade do disco C:..."
+    msg_inicio = f"Checando integridade do disco ({caminho_disco})..."
     print(f"[INFO] {msg_inicio}")
     logging.info(msg_inicio)
 
     if percentual_usado >= LIMITE_DISCO_PERCENTUAL:
-        alerta = f"ALERTA CRITICO: O disco C: atingiu {percentual_usado}% de capacidade!"
+        alerta = f"ALERTA CRITICO: O disco ({caminho_disco}) atingiu {percentual_usado}% de capacidade!"
         print(f"[ALERTA] {alerta}")
         logging.warning(alerta)
         enviar_alerta_teams(alerta)
     else:
-        status = f"Uso do disco C: em {percentual_usado}%. Operacao dentro da normalidade."
+        status = f"Uso do disco ({caminho_disco}) em {percentual_usado}%. Operacao dentro da normalidade."
         print(f"[INFO] {status}")
         logging.info(status)
         enviar_alerta_teams(status)
