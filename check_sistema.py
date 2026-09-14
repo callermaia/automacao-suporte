@@ -1,27 +1,57 @@
 import os
+import sys
 import logging
-import psutil
 import requests
+import psutil
 from dotenv import load_dotenv
 
-# Configura o sistema de logging acumulativo
 logging.basicConfig(
-    filename='execucao.log',
     level=logging.INFO,
-    format='%(asctime)s - [%(levelname)s] - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("execucao.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 
 load_dotenv()
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-LIMITE_DISCO_PERCENTUAL = 80.0
+LIMITE_DISCO_PERCENT = 80.0
+LIMITE_RAM_PERCENT = 85.0
+LIMITE_CPU_PERCENT = 90.0
 
-def enviar_alerta_teams(mensagem):
+def verificar_sistema():
+    # Coleta de métricas nativas do sistema onde o script está rodando (Linux / Container)
+    caminho_disco = "/"
+    logging.info(f"Checando integridade do disco ({caminho_disco})...")
+    
+    uso_disco = psutil.disk_usage(caminho_disco).percent
+    uso_ram = psutil.virtual_memory().percent
+    uso_cpu = psutil.cpu_percent(interval=1)
+
+    logging.info(f"Uso do disco ({caminho_disco}): {uso_disco}% | RAM: {uso_ram}% | CPU: {uso_cpu}%")
+
+    alerta_disco = uso_disco >= LIMITE_DISCO_PERCENT
+    alerta_ram = uso_ram >= LIMITE_RAM_PERCENT
+    alerta_cpu = uso_cpu >= LIMITE_CPU_PERCENT
+
+    status_critico = alerta_disco or alerta_ram or alerta_cpu
+
+    titulo = "⚠️ ALERTA DE RECURSOS DO SISTEMA" if status_critico else "✅ Relatório de Integridade do Sistema"
+    
+    mensagem = (
+        f"**Status do Container/VM Linux:**\n\n"
+        f"- **Disco ({caminho_disco}):** {uso_disco}% {'🔴 (Limite Atingido)' if alerta_disco else '🟢'}\n"
+        f"- **Memória RAM:** {uso_ram}% {'🔴 (Limite Atingido)' if alerta_ram else '🟢'}\n"
+        f"- **Uso de CPU:** {uso_cpu}% {'🔴 (Limite Atingido)' if alerta_cpu else '🟢'}"
+    )
+
+    enviar_notificacao_teams(titulo, mensagem)
+
+def enviar_notificacao_teams(titulo, mensagem):
     if not WEBHOOK_URL:
-        erro_msg = "Variavel WEBHOOK_URL nao encontrada no .env!"
-        print(f"[ERRO] {erro_msg}")
-        logging.error(erro_msg)
+        logging.error("WEBHOOK_URL não encontrada no ambiente!")
         return
 
     payload = {
@@ -29,23 +59,13 @@ def enviar_alerta_teams(mensagem):
         "attachments": [
             {
                 "contentType": "application/vnd.microsoft.card.adaptive",
-                "contentUrl": None,
                 "content": {
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "$schema": "http://adaptivecards.io/schemas/adaptivecard.json",
                     "type": "AdaptiveCard",
                     "version": "1.2",
                     "body": [
-                        {
-                            "type": "TextBlock",
-                            "text": "📊 Relatório de Infraestrutura - Disco",
-                            "weight": "Bolder",
-                            "size": "Medium"
-                        },
-                        {
-                            "type": "TextBlock",
-                            "text": mensagem,
-                            "wrap": True
-                        }
+                        {"type": "TextBlock", "text": titulo, "weight": "Bolder", "size": "Medium"},
+                        {"type": "TextBlock", "text": mensagem, "wrap": True}
                     ]
                 }
             }
@@ -54,48 +74,10 @@ def enviar_alerta_teams(mensagem):
 
     try:
         response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
-        if response.status_code in [200, 202]:
-            sucesso_msg = "Notificacao enviada para o Teams com sucesso!"
-            print(f"[INFO] {sucesso_msg}")
-            logging.info(sucesso_msg)
-        else:
-            recusa_msg = f"Teams recusou o envio. Codigo HTTP: {response.status_code}"
-            print(f"[ERRO] {recusa_msg}")
-            logging.error(recusa_msg)
+        response.raise_for_status()
+        logging.info("Notificação enviada para o Teams com sucesso!")
     except Exception as e:
-        falha_msg = f"Falha de conexao com o Webhook: {e}"
-        print(f"[ERRO] {falha_msg}")
-        logging.error(falha_msg)
-
-def verificar_disco():
-    # Prioridade de verificação do disco:
-    # 1. Se existe a pasta mapeada do container (/host_disk) -> usa ela
-    # 2. Se for Windows local -> usa 'C:\'
-    # 3. Caso contrário -> usa a raiz Linux '/'
-    if os.path.exists('/host_disk'):
-        caminho_disco = '/host_disk'
-    elif os.name == 'nt':
-        caminho_disco = 'C:\\'
-    else:
-        caminho_disco = '/'
-
-    uso_disco = psutil.disk_usage(caminho_disco)
-    percentual_usado = uso_disco.percent
-
-    msg_inicio = f"Checando integridade do disco ({caminho_disco})..."
-    print(f"[INFO] {msg_inicio}")
-    logging.info(msg_inicio)
-
-    if percentual_usado >= LIMITE_DISCO_PERCENTUAL:
-        alerta = f"ALERTA CRITICO: O disco ({caminho_disco}) atingiu {percentual_usado}% de capacidade!"
-        print(f"[ALERTA] {alerta}")
-        logging.warning(alerta)
-        enviar_alerta_teams(alerta)
-    else:
-        status = f"Uso do disco ({caminho_disco}) em {percentual_usado}%. Operacao dentro da normalidade."
-        print(f"[INFO] {status}")
-        logging.info(status)
-        enviar_alerta_teams(status)
+        logging.error(f"Falha ao enviar notificação para o Teams: {e}")
 
 if __name__ == "__main__":
-    verificar_disco()
+    verificar_sistema()

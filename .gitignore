@@ -1,4 +1,7 @@
 .env
+execucao.log
+executar_monitor.old
+_bkp/
 __pycache__/
-*.log
-*.log
+*.pyc
+.pytest_cache/

@@ -4,7 +4,6 @@ services:
     image: monitor-disco:v1
     container_name: monitor_disco_app
     volumes:
-      - C:\:/host_disk
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
