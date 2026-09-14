@@ -5,6 +5,8 @@ import logging
 import requests
 import psutil
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Formatador customizado para logs em JSON
 class JsonFormatter(logging.Formatter):
@@ -39,6 +41,20 @@ LIMITE_DISCO_PERCENT = 80.0
 LIMITE_RAM_PERCENT = 85.0
 LIMITE_CPU_PERCENT = 90.0
 
+def criar_sessao_com_retry():
+    """Cria uma sessão HTTP configurada com politica de retentativa (Retry)."""
+    session = requests.Session()
+    estrategia_retry = Retry(
+        total=3,                       # Tenta até 3 vezes em caso de falha
+        backoff_factor=2,              # Tempo de espera entre tentativas: 2s, 4s, 8s...
+        status_forcelist=[429, 500, 502, 503, 504], # Re-tenta para estes códigos HTTP de erro
+        allowed_methods=["POST"]
+    )
+    adapter = HTTPAdapter(max_retries=estrategia_retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
 def verificar_sistema():
     caminho_disco = "/"
     logger.info("Iniciando checagem de integridade do sistema.")
@@ -53,7 +69,6 @@ def verificar_sistema():
 
     status_critico = alerta_disco or alerta_ram or alerta_cpu
 
-    # Log estruturado com as métricas do sistema
     metricas = {
         "disco_caminho": caminho_disco,
         "disco_uso_percent": uso_disco,
@@ -98,11 +113,12 @@ def enviar_notificacao_teams(titulo, mensagem):
     }
 
     try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
+        session = criar_sessao_com_retry()
+        response = session.post(WEBHOOK_URL, json=payload, timeout=10)
         response.raise_for_status()
         logger.info("Notificação enviada para o Teams com sucesso.")
     except Exception as e:
-        logger.error(f"Falha ao enviar notificação para o Teams: {e}")
+        logger.error(f"Falha ao enviar notificação para o Teams após retentativas: {e}")
 
 if __name__ == "__main__":
     verificar_sistema()
