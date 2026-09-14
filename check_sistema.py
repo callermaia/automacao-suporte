@@ -4,7 +4,9 @@ import json
 import logging
 import requests
 import psutil
+from datetime import datetime
 from dotenv import load_dotenv
+from logging.handlers import TimedRotatingFileHandler
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -24,7 +26,18 @@ class JsonFormatter(logging.Formatter):
 logger = logging.getLogger("MonitorSistema")
 logger.setLevel(logging.INFO)
 
-handler_file = logging.FileHandler("execucao.log", encoding="utf-8")
+# Configura o arquivo de log com o nome contendo a data atual (ex: execucao_2026-09-14.log)
+data_hoje = datetime.now().strftime("%Y-%m-%d")
+nome_arquivo_log = f"execucao_{data_hoje}.log"
+
+# Handler de arquivo com rotação diária (mantém histórico dos últimos 30 dias)
+handler_file = TimedRotatingFileHandler(
+    filename=nome_arquivo_log,
+    when="midnight",
+    interval=1,
+    backupCount=30,
+    encoding="utf-8"
+)
 handler_stdout = logging.StreamHandler(sys.stdout)
 
 formatter = JsonFormatter()
@@ -37,17 +50,18 @@ logger.addHandler(handler_stdout)
 load_dotenv()
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
+# Limites operacionais de produção
 LIMITE_DISCO_PERCENT = 80.0
 LIMITE_RAM_PERCENT = 85.0
 LIMITE_CPU_PERCENT = 90.0
 
 def criar_sessao_com_retry():
-    """Cria uma sessão HTTP configurada com politica de retentativa (Retry)."""
     session = requests.Session()
     estrategia_retry = Retry(
-        total=3,                       # Tenta até 3 vezes em caso de falha
-        backoff_factor=2,              # Tempo de espera entre tentativas: 2s, 4s, 8s...
-        status_forcelist=[429, 500, 502, 503, 504], # Re-tenta para estes códigos HTTP de erro
+        total=3,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["POST"]
     )
     adapter = HTTPAdapter(max_retries=estrategia_retry)
