@@ -4,11 +4,11 @@ Este projeto é um agente automatizado desenvolvido em Python para monitorar rec
 
 ## 🚀 Funcionalidades
 
-- **Coleta Multi-Métrica:** Monitoramento contínuo de Uso de Disco (`/`), Memória RAM e Uso de CPU.
-- **Observabilidade Profissional:** Logs estruturados em formato **JSON** com timestamps e metadados detalhados para indexação e análise.
-- **Resiliência Integrada:** Política de retentativa automática (*Retry logic* com *Exponential Backoff*) no envio de Webhooks.
-- **Integração CI/CD:** Esteira automatizada via **GitHub Actions** validando compilação Python, sintaxe e build da imagem Docker a cada push.
-- **Alertas Dinâmicos:** Cartões adaptativos no Microsoft Teams diferenciando relatórios de rotina (🟢) e alertas críticos (🔴).
+- **Coleta Multi-Métrica:** Monitoramento contínuo de Uso de Disco (`/`), Memória RAM e CPU.
+- **Logs Estruturados em JSON:** Registro de execuções no formato JSON.
+- **Rotação Diária de Logs:** Os logs são salvos em arquivos individuais por data (`execucao_YYYY-MM-DD.log`).
+- **Resiliência Integrada:** Retentativa automática em caso de falhas de rede no envio do Webhook.
+- **Alertas Dinâmicos:** Mensagens diferenciadas para relatórios normais (🟢) e alertas críticos (🔴).
 
 ## 🧰 Stack Tecnológica
 
